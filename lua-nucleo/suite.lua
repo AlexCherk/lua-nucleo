@@ -30,6 +30,12 @@ local bind_many
         'bind_many'
       }
 
+local tifindvalue_nonrecursive
+      = import 'lua-nucleo/table-utils.lua'
+      {
+        'tifindvalue_nonrecursive'
+      }
+
 local print, loadfile, xpcall, error, assert, type, next, pairs =
       print, loadfile, xpcall, error, assert, type, next, pairs
 
@@ -359,7 +365,13 @@ do
 
     return make_single_test(function(fn)
       assert(type(fn) == "function", "bad callback")
-      self.tests_[#self.tests_ + 1] = { name = name, fn = fn }
+      -- filter tests
+      if not self.relevant_test_names_ or
+         tifindvalue_nonrecursive(self.relevant_test_names_, name)
+      then
+        self.tests_[#self.tests_ + 1] = { name = name, fn = fn }
+      else
+      end
     end)
   end
 
@@ -435,6 +447,13 @@ do
     self.fail_on_first_error_ = flag
   end
 
+  local set_relevant_test_names = function(self, names)
+    assert(type(self) == "table", "bad self")
+    assert(type(names) == "table" or names == false, "bad names")
+
+    self.relevant_test_names_ = names
+  end
+
   local suite_mt =
   {
     __call = test;
@@ -479,6 +498,7 @@ do
           -- TODO: test set_fail_on_first_error
           -- https://github.com/lua-nucleo/lua-nucleo/issues/4
           set_fail_on_first_error = set_fail_on_first_error;
+          set_relevant_test_names = set_relevant_test_names;
           UNTESTED = UNTESTED;
           TODO = TODO;
           BROKEN = BROKEN;
@@ -495,6 +515,7 @@ do
           current_group_ = "";
           tests_ = { };
           test_names_ = { };
+          relevant_test_names_ = false;
           todos_ = { };
           --
           error_count_ = 0;
@@ -520,6 +541,7 @@ local run_test = function(target, parameters_list)
 
   local strict_mode = not not parameters_list.strict_mode
   local fail_on_first_error = not not parameters_list.fail_on_first_error
+  local relevant_test_names = parameters_list.names
   local suite
 
   local suite_maker = function(...)
@@ -529,6 +551,9 @@ local run_test = function(target, parameters_list)
       suite = make_suite(...)
       suite:set_strict_mode(strict_mode)
       suite:set_fail_on_first_error(fail_on_first_error)
+      if relevant_test_names then
+        suite:set_relevant_test_names(relevant_test_names)
+      end
       return suite
     end
   end
