@@ -92,6 +92,17 @@ local read_original = function(filename)
   return r
 end
 
+local ensure_tables_congruent = function(msg, actual, expected)
+  local function aggregate(t)
+    local r = { }
+    for i = 1, #t do
+      r[ t[i] ] = (r[ t[i] ] or 0) + 1
+    end
+    return r
+  end
+  ensure_tdeepequals(msg, aggregate(actual), aggregate(expected))
+end
+
 ---------------------------------------------------------------------------
 
 test "returns_what_has_taken" (function()
@@ -103,21 +114,21 @@ test "returns_what_has_taken" (function()
   end
 
   local storage = create_storage("test/data/key_value_store/orig.tsv")
-  ensure_tequals(
+  ensure_tables_congruent(
       "storage is sane about keys",
       dump_storage_keys(storage),
       orig
     )
---[[  ensure_tequals(
+  ensure_tables_congruent(
       "storage is sane about values",
       dump_storage_values(storage),
       orig
     )
-  ensure_tdeepequals(
+  ensure_tables_congruent(
       "storage is sane about key/values",
       dump_storage_pairs(storage),
       orig_kv
-    )]]
+    )
 
 end)
 
