@@ -30,6 +30,12 @@ local ensure,
         "ensure_fails_with_substring"
       }
 
+local tpretty
+      = import "lua-nucleo/tpretty.lua"
+      {
+        "tpretty"
+      }
+
 ---------------------------------------------------------------------------
 
 local make_ophash_key_value_store
@@ -40,7 +46,7 @@ local make_ophash_key_value_store
 
 ---------------------------------------------------------------------------
 
-local create_storage = function(filename)
+local create_storage = function(filename, hash_maker)
   -- storage
   local less_than = function(lhs, rhs)
     return lhs < rhs
@@ -55,7 +61,7 @@ local create_storage = function(filename)
     )
   -- fill
   for k in io.lines(filename) do
-    storage:add(k, k, #k)
+    storage:add(k, k, hash_maker(k))
   end
   return storage
 end
@@ -113,7 +119,13 @@ test "returns_what_has_taken" (function()
     orig_kv[#orig_kv + 1] = {orig[i], orig[i]}
   end
 
-  local storage = create_storage("test/data/key_value_store/orig.tsv")
+  local storage = create_storage(
+      "test/data/key_value_store/orig.tsv",
+      -- hash is key length
+      function(k)
+        return #k
+      end
+    )
   ensure_tables_congruent(
       "storage is sane about keys",
       dump_storage_keys(storage),
@@ -134,10 +146,39 @@ end)
 
 ---------------------------------------------------------------------------
 
-test "sorts_ok" (function()
+test "sorts_ok_for_constant_hash" (function()
 
-  local storage = create_storage("test/data/key_value_store/orig.tsv")
-  storage:sort()
+  local storage = create_storage(
+      "test/data/key_value_store/orig.tsv",
+      -- hash is constant
+      function(k)
+        return 1
+      end
+    )
+  ensure_equals("storage can be is sorted", storage:sort(), true)
+  ensure_tequals(
+      "storage is sane about sorted keys",
+      dump_storage_keys(storage),
+      read_original("test/data/key_value_store/orig-sorted.tsv")
+    )
+  ensure_tequals(
+      "storage is sane about sorted values",
+      dump_storage_values(storage),
+      read_original("test/data/key_value_store/orig-sorted.tsv")
+    )
+
+end)
+
+test "sorts_ok_for_variable_hash" (function()
+
+  local storage = create_storage(
+      "test/data/key_value_store/orig.tsv",
+      -- hash is key length
+      function(k)
+        return #k
+      end
+    )
+  ensure_equals("storage can be is sorted", storage:sort(), true)
   ensure_tequals(
       "storage is sane about sorted keys",
       dump_storage_keys(storage),
@@ -156,7 +197,13 @@ end)
 test "methods_work" (function()
 
   -- fill
-  local storage = create_storage("test/data/key_value_store/orig.tsv")
+  local storage = create_storage(
+      "test/data/key_value_store/orig.tsv",
+      -- hash is key length
+      function(k)
+        return #k
+      end
+    )
   ensure_equals(
       "storage keeps 208 items",
       storage.num_values_,
